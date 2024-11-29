@@ -1,68 +1,101 @@
 # Agentic OS
 
-An advanced AI agent operating system with multi-agent orchestration capabilities.
+A state-of-the-art AI agent operating system with multi-model orchestration capabilities.
 
-## Overview
+## System Architecture
 
-Agentic OS is a next-generation web application that provides an intelligent interface for interacting with multiple AI agents. Similar to Perplexity but with advanced agent orchestration capabilities.
+```mermaid
+graph TB
+    Client[Client Layer]
+    API[API Gateway]
+    Auth[Auth Service]
+    Agent[Agent Orchestrator]
+    LLM[LLM Service]
+    DB[(Database)]
+    Cache[(Redis Cache)]
+    
+    Client --> API
+    API --> Auth
+    API --> Agent
+    Agent --> LLM
+    Agent --> DB
+    Agent --> Cache
+```
 
 ## Features
 
-- Multi-agent orchestration
-- Real-time chat interface
-- Source attribution
-- Conversation branching
-- Advanced search capabilities
+- 🤖 Multi-model AI Agent Support
+- 🔄 Real-time Streaming Responses
+- 🔒 Enterprise-grade Security
+- 📊 Advanced Analytics
+- 🎨 Modern UI/UX
+- 🚀 High Performance
+- 📱 Responsive Design
 
-## Technology Stack
+## Tech Stack
 
-- Frontend: Next.js 14, TypeScript, Tailwind CSS
-- Backend: Node.js, Express
-- Database: PostgreSQL, Prisma
-- Cache: Redis
-- LLM Integration: OpenAI GPT-4
+### Frontend
+- Next.js 14 (App Router)
+- TypeScript
+- Tailwind CSS
+- WebSocket
+- Redux Toolkit
 
-## Project Structure
+### Backend
+- Node.js/Express
+- PostgreSQL
+- Redis
+- WebSocket
+- JWT Authentication
 
-```
-agentic-os/
-├── src/
-│   ├── app/                 # Next.js 14 app directory
-│   ├── components/          # React components
-│   ├── lib/                 # Utility functions and shared logic
-│   ├── styles/             # Global styles and Tailwind config
-│   └── types/              # TypeScript type definitions
-├── prisma/                 # Database schema and migrations
-├── public/                 # Static assets
-└── tests/                 # Test files
-```
+### DevOps
+- Docker
+- GitHub Actions
+- Kubernetes
+- Prometheus/Grafana
 
 ## Getting Started
 
-1. Clone the repository
+1. Clone the repository:
 ```bash
 git clone https://github.com/seanmcrae/Agentic-OS.git
 cd Agentic-OS
 ```
 
-2. Install dependencies
+2. Install dependencies:
 ```bash
 npm install
 ```
 
-3. Set up environment variables
+3. Set up environment variables:
 ```bash
 cp .env.example .env
 ```
 
-4. Start the development server
+4. Start development server:
 ```bash
 npm run dev
 ```
 
+## Project Structure
+
+```
+Agentic-OS/
+├── apps/
+│   ├── web/                 # Frontend application
+│   └── api/                 # Backend API
+├── packages/
+│   ├── ui/                  # Shared UI components
+│   ├── core/                # Core business logic
+│   └── config/             # Shared configuration
+├── infrastructure/         # Infrastructure as code
+├── scripts/               # Development scripts
+└── docs/                  # Documentation
+```
+
 ## Contributing
 
-Contributions are welcome! Please read our contributing guidelines before submitting pull requests.
+Please read our [Contributing Guide](CONTRIBUTING.md) before making a pull request.
 
 ## License
 
