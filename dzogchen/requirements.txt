@@ -1,0 +1,22 @@
+# Core dependencies
+anthropic>=0.40.0
+openai>=1.50.0
+
+# API server
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.0.0
+
+# CLI
+click>=8.1.0
+rich>=13.0.0
+
+# Async
+aiohttp>=3.9.0
+
+# Optional: persistence
+redis>=5.0.0
+sqlalchemy>=2.0.0
+
+# Optional: embeddings
+numpy>=1.26.0
