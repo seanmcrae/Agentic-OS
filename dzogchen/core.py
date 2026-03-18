@@ -28,6 +28,16 @@ from dzogchen.tools.registry import ToolRegistry
 from dzogchen.tools.executor import ToolExecutor
 from dzogchen.tools.builtin import get_builtin_tools
 
+# Phase 3 — State of the art extensions
+from dzogchen.cache.semantic import SemanticCache
+from dzogchen.structured.output import StructuredGenerator, OutputSchema, GenerationResult
+from dzogchen.safety.constitutional import ConstitutionalAI, SafetyResult, PrincipleSet
+from dzogchen.context.compressor import ContextCompressor, CompressionStrategy, TokenBudget
+from dzogchen.observability.telemetry import Telemetry
+from dzogchen.budget.manager import BudgetManager
+from dzogchen.pipelines.builder import Pipeline, PipelineStep
+from dzogchen.multimodal.processor import MultimodalProcessor, MultimodalInput, ModalityType
+
 logger = logging.getLogger(__name__)
 
 
@@ -79,6 +89,7 @@ class Dzogchen:
         self._initialize_consciousness()
         self._initialize_intelligence()
         self._initialize_agents()
+        self._initialize_phase3()
 
         self._started = False
         self._start_time: Optional[float] = None
@@ -366,6 +377,150 @@ class Dzogchen:
         async for step in self.reasoning.stream_reasoning(query):
             yield f"Step {step.step_number}: {step.thought}\n"
 
+    # =========================================================================
+    # Phase 3 — State of the art extensions
+    # =========================================================================
+
+    async def safe_think(
+        self,
+        query: str,
+        strategy: str = "cot",
+        check_input: bool = True,
+    ) -> Dict[str, Any]:
+        """
+        think() + Constitutional AI safety filtering.
+
+        Checks the user's input for prompt injection, then runs the response
+        through the safety layer before returning.
+
+        Returns:
+            Dict with "response", "safe" (bool), "violations", "revised" (bool)
+        """
+        await self._ensure_started()
+
+        with self.telemetry.span("safe_think", query=query[:100]):
+            # Check input for injections
+            if check_input:
+                input_check = await self.safety.check(query, check_input=True)
+                if not input_check.is_safe:
+                    return {
+                        "response": "I cannot process this request due to safety concerns.",
+                        "safe": False,
+                        "violations": [v.principle_name for v in input_check.violations],
+                        "revised": False,
+                        "input_blocked": True,
+                    }
+
+            # Check cache
+            cached = await self.cache.get(query)
+            if cached:
+                self.telemetry.counter("cache_hits")
+                return {"response": cached, "safe": True, "violations": [], "revised": False, "cache_hit": True}
+
+            # Generate
+            response = await self.think(query, strategy=strategy, reflect=True)
+
+            # Safety check output
+            safety_result = await self.safety.check(response, context=query)
+
+            # Budget tracking
+            self.budget.record_usage(
+                model=self.config.primary_model.model_id,
+                input_tokens=len(query.split()) * 2,
+                output_tokens=len(response.split()),
+                operation="safe_think",
+                session_id=self.session_id,
+            )
+
+            # Cache safe responses
+            if safety_result.is_safe:
+                await self.cache.set(query, safety_result.revised)
+            self.telemetry.counter("safe_think_calls")
+
+            return {
+                "response": safety_result.revised,
+                "safe": safety_result.is_safe,
+                "violations": [v.principle_name for v in safety_result.violations],
+                "revised": safety_result.revision_applied,
+                "cache_hit": False,
+            }
+
+    async def generate_structured(
+        self,
+        prompt: str,
+        schema: OutputSchema,
+        context: Optional[str] = None,
+    ) -> GenerationResult:
+        """
+        Generate output conforming to a defined schema.
+
+        Example:
+            schema = OutputSchema(
+                name="analysis",
+                fields={
+                    "summary": {"type": "string"},
+                    "confidence": {"type": "number"},
+                    "key_points": {"type": "array"},
+                },
+                required=["summary", "confidence"],
+            )
+            result = await dz.generate_structured("Analyze this code", schema)
+            print(result.data["summary"])
+        """
+        await self._ensure_started()
+        with self.telemetry.span("generate_structured", schema=schema.name):
+            result = await self.structured_gen.generate(prompt, schema, context)
+            self.telemetry.counter("structured_generations")
+            return result
+
+    async def process_image(
+        self,
+        image: Any,
+        prompt: Optional[str] = None,
+    ) -> str:
+        """
+        Process an image (file path, bytes, or URL) and return a description.
+
+        Requires a vision-capable model adapter.
+        """
+        await self._ensure_started()
+        with self.telemetry.span("process_image"):
+            return await self.multimodal.describe_image(image, prompt=prompt)
+
+    async def safe_check(self, text: str) -> SafetyResult:
+        """Directly run the constitutional AI safety check on text."""
+        await self._ensure_started()
+        return await self.safety.check(text)
+
+    async def compress_context(
+        self,
+        messages: List[Dict[str, Any]],
+        max_tokens: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """
+        Compress a message list to fit within a token budget.
+
+        Useful for long conversations that would exceed model context limits.
+        """
+        await self._ensure_started()
+        budget = TokenBudget(total=max_tokens or self.context_compressor.max_tokens, used=0)
+        compressed = await self.context_compressor.compress(messages, budget)
+        return compressed.messages
+
+    def pipeline(self, name: str = "dzogchen_pipeline") -> Pipeline:
+        """
+        Create a new declarative processing pipeline.
+
+        Example:
+            result = await (
+                dz.pipeline("research")
+                .step("search", search_fn)
+                .step("analyze", analyze_fn)
+                .step("summarize", summarize_fn)
+            ).run({"query": "AI breakthroughs"})
+        """
+        return Pipeline(name=name, telemetry=self.telemetry)
+
     def get_status(self) -> Dict[str, Any]:
         """Get complete system status."""
         return {
@@ -377,6 +532,13 @@ class Dzogchen:
             "memory": self.memory.get_stats(),
             "tools": self.tool_registry.get_stats(),
             "agents": self.orchestrator.get_stats(),
+            # Phase 3
+            "cache": self.cache.get_stats(),
+            "safety": self.safety.get_stats(),
+            "budget": self.budget.get_cost_breakdown(),
+            "multimodal": self.multimodal.get_stats(),
+            "structured_gen": {"max_retries": self.structured_gen.max_retries},
+            "telemetry": self.telemetry.get_metrics_summary(),
             "reasoning": self.reasoning.get_reasoning_stats(),
             "consciousness": self.consciousness.get_context_summary(),
             "metacognition": self.metacognition.get_calibration_report(),
@@ -485,6 +647,52 @@ class Dzogchen:
         self.orchestrator = AgentOrchestrator(
             model_caller=self._get_model_caller(),
             max_parallel_agents=self.config.agent.max_parallel_agents,
+        )
+
+    def _initialize_phase3(self) -> None:
+        """Initialize Phase 3 state-of-the-art modules."""
+        caller = self._get_model_caller()
+
+        # Semantic response cache
+        self.cache = SemanticCache(
+            similarity_threshold=0.92,
+            max_size=500,
+            ttl_seconds=3600,
+        )
+
+        # Structured output generator
+        self.structured_gen = StructuredGenerator(
+            model_caller=caller,
+            max_retries=3,
+        )
+
+        # Constitutional AI safety layer
+        self.safety = ConstitutionalAI(
+            model_caller=caller,
+            principles=PrincipleSet.harmlessness() + PrincipleSet.honesty(),
+            auto_revise=True,
+        )
+
+        # Context window compressor
+        self.context_compressor = ContextCompressor(
+            model_caller=caller,
+            max_tokens=self.config.primary_model.max_tokens or 8000,
+            strategy=CompressionStrategy.HYBRID,
+        )
+
+        # Observability
+        self.telemetry = Telemetry(
+            service_name=f"dzogchen-{self.config.version}",
+        )
+
+        # Budget manager
+        self.budget = BudgetManager(default_budget_usd=10.0)
+        self.budget.create_budget("session", limit_usd=10.0, period="session")
+
+        # Multimodal processor
+        self.multimodal = MultimodalProcessor(
+            model_caller=caller,
+            vision_caller=caller,
         )
 
     def _get_model_caller(self) -> Optional[Callable]:
