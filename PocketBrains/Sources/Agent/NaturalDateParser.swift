@@ -8,6 +8,7 @@ enum NaturalDateParser {
         let cal = Calendar.current
 
         if lower.contains("today") { return cal.startOfDay(for: reference) }
+        if lower.contains("yesterday") { return cal.date(byAdding: .day, value: -1, to: cal.startOfDay(for: reference)) }
         if lower.contains("tomorrow") { return cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: reference)) }
         if lower.contains("next week") { return cal.date(byAdding: .day, value: 7, to: cal.startOfDay(for: reference)) }
 

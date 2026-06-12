@@ -43,15 +43,17 @@ static float2 sdfNormal(float2 p, float2 size, float radius) {
     float2 refr = position - n * bend;
 
     // Mild chromatic split on the bend for lensy realism.
-    half4 c;
-    c.r = layer.sample(refr + n * 1.4).r;
-    c.g = layer.sample(refr).g;
-    c.b = layer.sample(refr - n * 1.4).b;
-    c.a = layer.sample(refr).a;
+    // (Float math throughout; convert to half once at the end.)
+    float4 c;
+    c.r = float(layer.sample(refr + n * 1.4).r);
+    c.g = float(layer.sample(refr).g);
+    c.b = float(layer.sample(refr - n * 1.4).b);
+    c.a = float(layer.sample(refr).a);
 
     // --- Identity tint: breathes into the body of the glass, strongest low.
+    float4 tintF = float4(tint);
     float depthGrad = position.y / max(size.y, 1.0);
-    c.rgb = mix(c.rgb, tint.rgb, tint.a * (0.10 + 0.10 * depthGrad));
+    c.rgb = mix(c.rgb, tintF.rgb, tintF.a * (0.10 + 0.10 * depthGrad));
 
     // --- Specular bead: a bright thread along the rim facing the light.
     float facing = max(0.0, dot(n, -normalize(light + float2(1e-4))));
@@ -59,16 +61,16 @@ static float2 sdfNormal(float2 p, float2 size, float radius) {
     float spec = edge * pow(facing, 3.0);
     // A slow shimmer travels the bead so the glass feels alive even at rest.
     float shimmer = 0.85 + 0.15 * sin(time * 0.7 + (position.x + position.y) * 0.02);
-    c.rgb += half3(spec * 0.55 * shimmer);
+    c.rgb += spec * 0.55 * shimmer;
 
     // --- Broad sheen: soft diagonal light across the face.
     float2 uv = position / size;
-    float sheen = max(0.0, 1.0 - distance(uv, float2(0.5) - float2(light.x, light.y) * 0.45) * 1.4);
-    c.rgb += half3(sheen * sheen * 0.05);
+    float sheen = max(0.0, 1.0 - distance(uv, float2(0.5) - light * 0.45) * 1.4);
+    c.rgb += sheen * sheen * 0.05;
 
     // Feathered anti-aliased rim.
-    c.a *= half(smoothstep(0.5, -0.8, d));
-    return c;
+    c.a *= smoothstep(0.5, -0.8, d);
+    return half4(c);
 }
 
 /// Aurora field — the thinking orb and the Knowledge space atmosphere.
@@ -100,6 +102,7 @@ static float fbm(float2 p) {
 }
 
 [[ stitchable ]] half4 aurora(float2 position,
+                              half4 existing,
                               float2 size,
                               float time,
                               half4 tint,
@@ -118,7 +121,9 @@ static float fbm(float2 p) {
     half3 col = tint.rgb * half(glow);
     // Warm core where the field is strongest.
     col += half3(0.89, 0.77, 0.43) * half(pow(glow, 3.0) * 0.6);
-    return half4(col, half(glow * tint.a));
+    // Composite the light over whatever the view already drew.
+    half a = half(glow * tint.a);
+    return half4(existing.rgb * (1.0h - a) + col, max(existing.a, a));
 }
 
 /// Specular sweep used by the streaming-text condensation reveal: a band of

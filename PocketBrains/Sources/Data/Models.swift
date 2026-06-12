@@ -9,7 +9,10 @@ enum TaskPriority: Int, Codable, CaseIterable {
     var bars: Int { max(0, rawValue) }
     var label: String {
         switch self {
-        case .low: "Low"; case .normal: "Normal"; case .high: "High"; case .urgent: "Urgent"
+        case .low: return "Low"
+        case .normal: return "Normal"
+        case .high: return "High"
+        case .urgent: return "Urgent"
         }
     }
 }
@@ -27,6 +30,10 @@ final class TaskItem {
     var project: Project?
     /// Tasks that must finish before this one can start.
     var blockedBy: [TaskItem]?
+    /// Inverse: tasks this one is blocking (explicit, because the
+    /// relationship is self-referential and SwiftData can't infer it).
+    @Relationship(inverse: \TaskItem.blockedBy)
+    var blocking: [TaskItem]?
 
     var priority: TaskPriority {
         get { TaskPriority(rawValue: priorityRaw) ?? .normal }

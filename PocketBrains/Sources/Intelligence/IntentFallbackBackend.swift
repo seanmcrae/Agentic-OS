@@ -42,6 +42,7 @@ final class IntentFallbackBackend: ModelBackend {
 
     // MARK: - Routing
 
+    @MainActor
     private static func route(_ prompt: String, toolbox: ToolBox)
         -> (tool: String?, activity: String, result: ToolResult?, reply: String) {
         let lower = prompt.lowercased()

@@ -9,8 +9,6 @@ struct GlassSurface: ViewModifier {
     /// Elevation 0 = flush plate, 1 = floating card.
     var depth: Double = 1
 
-    @State private var shaderHealthy = true
-
     func body(content: Content) -> some View {
         content
             .background {
@@ -19,9 +17,7 @@ struct GlassSurface: ViewModifier {
                         .fill(.ultraThinMaterial)
                     RoundedRectangle(cornerRadius: radius, style: .continuous)
                         .fill(Ink.l2.opacity(0.55))
-                    if shaderHealthy {
-                        GlassSheen(radius: radius, tint: tint)
-                    }
+                    GlassSheen(radius: radius, tint: tint)
                 }
                 .compositingGroup()
                 .shadow(

@@ -7,17 +7,23 @@ enum SpaceKind: Int, CaseIterable, Identifiable {
     var id: Int { rawValue }
     var title: String {
         switch self {
-        case .today: "Today"; case .projects: "Projects"; case .knowledge: "Knowledge"
+        case .today: return "Today"
+        case .projects: return "Projects"
+        case .knowledge: return "Knowledge"
         }
     }
     var icon: String {
         switch self {
-        case .today: "sun.horizon"; case .projects: "square.stack"; case .knowledge: "circle.hexagongrid"
+        case .today: return "sun.horizon"
+        case .projects: return "square.stack"
+        case .knowledge: return "circle.hexagongrid"
         }
     }
     var hue: Color {
         switch self {
-        case .today: DomainHue.task; case .projects: lumen; case .knowledge: DomainHue.knowledge
+        case .today: return DomainHue.task
+        case .projects: return lumen
+        case .knowledge: return DomainHue.knowledge
         }
     }
 }

@@ -46,9 +46,14 @@ enum ProjectHue: Int, CaseIterable, Codable {
 
     var name: String {
         switch self {
-        case .ember: "Ember"; case .citrine: "Citrine"; case .moss: "Moss"
-        case .jade: "Jade"; case .glacier: "Glacier"; case .dusk: "Dusk"
-        case .rosewood: "Rosewood"; case .slate: "Slate"
+        case .ember: return "Ember"
+        case .citrine: return "Citrine"
+        case .moss: return "Moss"
+        case .jade: return "Jade"
+        case .glacier: return "Glacier"
+        case .dusk: return "Dusk"
+        case .rosewood: return "Rosewood"
+        case .slate: return "Slate"
         }
     }
 }
